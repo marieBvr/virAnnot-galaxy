@@ -81,19 +81,24 @@ def _cut_sequence(options):
 								collection[cdd_id][query_id]["nuccleotide"] = seq
 								collection[cdd_id][query_id]["protein"] = prot
 								collection[cdd_id][query_id]["full_description"] = description
-								options.blast.sort()
-								with open(options.blast[i][0], 'r' ) as blast_current_file:
-									blast_reader = csv.reader(blast_current_file, delimiter='\t')
-									for b_query in blast_reader:
-										if b_query[1] == query_id:
-											collection[cdd_id][query_id]["nb"] = b_query[2]
-											if len(b_query) > 10:
-												collection[cdd_id][query_id]["taxonomy"] = b_query[14]
-											else:
-												collection[cdd_id][query_id]["taxonomy"] = "Unknown"
-										else :
-											if "nb" not in collection[cdd_id][query_id] : collection[cdd_id][query_id]["nb"] = 0
-											if "taxonomy" not in collection[cdd_id][query_id] : collection[cdd_id][query_id]["taxonomy"] = "Unknown"
+								if options.blast != None:
+									options.blast.sort()
+									with open(options.blast[i][0], 'r' ) as blast_current_file:
+										blast_reader = csv.reader(blast_current_file, delimiter='\t')
+										for b_query in blast_reader:
+											if b_query[1] == query_id:
+												collection[cdd_id][query_id]["nb"] = b_query[2]
+												if len(b_query) > 10:
+													collection[cdd_id][query_id]["taxonomy"] = b_query[14]
+												else:
+													collection[cdd_id][query_id]["taxonomy"] = "Unknown"
+											else :
+												if "nb" not in collection[cdd_id][query_id] : collection[cdd_id][query_id]["nb"] = 0
+												if "taxonomy" not in collection[cdd_id][query_id] : collection[cdd_id][query_id]["taxonomy"] = "Unknown"
+								else:
+									log.info("No blast file")
+									collection[cdd_id][query_id]["taxonomy"] = "Unknown"
+									collection[cdd_id][query_id]["nb"] = 0
 
 								collection[cdd_id]["short_description"] = description.split(",")[0] + description.split(",")[1] # keep pfamXXX and RdRp 1
 								collection[cdd_id]["full_description"] = description
@@ -297,14 +302,29 @@ def _get_stats(options, hits_collection):
 						otu_collection[row[0]][sample] = {}
 						otu_collection[row[0]][sample][contig] = {}
 						# add read number of the contig and annotation
-						otu_collection[row[0]][sample][contig]['nb'] = hits_collection[cdd_id][contig]["nb"]
-						otu_collection[row[0]][sample][contig]['taxonomy'] = hits_collection[cdd_id][contig]["taxonomy"]
+						if 'nb' in hits_collection[cdd_id][contig]:
+							otu_collection[row[0]][sample][contig]['nb'] = hits_collection[cdd_id][contig]["nb"]
+						else:
+							otu_collection[row[0]][sample][contig]['nb'] = 0
+						if 'taxonomy' in hits_collection[cdd_id][contig]:
+							otu_collection[row[0]][sample][contig]['taxonomy'] = hits_collection[cdd_id][contig]["taxonomy"]
+						else:
+							otu_collection[row[0]][sample][contig]['taxonomy'] = 'unknown'
 					else:
 						otu_collection[row[0]][sample][contig] = {}
 						# add read number of the contig and annotation
-						otu_collection[row[0]][sample][contig]['nb'] = hits_collection[cdd_id][contig]["nb"]
-						otu_collection[row[0]][sample][contig]['taxonomy'] = hits_collection[cdd_id][contig]["taxonomy"]
-					otu_collection[row[0]]['global_taxonomy'] = hits_collection[cdd_id][contig]["taxonomy"]
+						if 'nb' in hits_collection[cdd_id][contig]:
+							otu_collection[row[0]][sample][contig]['nb'] = hits_collection[cdd_id][contig]["nb"]
+						else:
+							otu_collection[row[0]][sample][contig]['nb'] = 0
+						if 'taxonomy' in hits_collection[cdd_id][contig]:
+							otu_collection[row[0]][sample][contig]['taxonomy'] = hits_collection[cdd_id][contig]["taxonomy"]
+						else:
+							otu_collection[row[0]][sample][contig]['taxonomy'] = 'unknown'
+					if 'taxonomy' in hits_collection[cdd_id][contig]:
+						otu_collection[row[0]]['global_taxonomy'] = hits_collection[cdd_id][contig]["taxonomy"]
+					else:
+						otu_collection[row[0]]['global_taxonomy'] = 'unknown'
 
 		# calculate total number of reads for each sample of each OTU
 		for otu in otu_collection:
@@ -377,7 +397,6 @@ def _create_html(options, hits_collection):
 		map_file.write(cdd_id + "\t" + file_seq_aligned + "\t" + tree_file + "\t")
 		map_file.write(file_cluster + "\t" + cluster_nb_reads_files + "\t" + file_matrix + "\t")
 		map_file.write(short_description + "\t" + hits_collection[cdd_id]["full_description"] + "\n")
-	
 	map_file.close()
 	log.info("Writing HTML report")
 	html_cmd = os.path.join(options.tool_path,'rps2tree_html.py') +' -m ' + map_file_path + ' -o ' + options.output
@@ -389,7 +408,7 @@ def _create_html(options, hits_collection):
 
 def _set_options():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-b','--blast', help='TAB blast file from blast2ecsv module.', action='append', required=True, dest='blast', nargs='+')
+	parser.add_argument('-b','--blast', help='TAB blast file from blast2ecsv module.', action='append', required=False, dest='blast', nargs='+')
 	parser.add_argument('-r','--rps', help='TAB rpsblast file from rps2ecsv module.', action='append', required=True, dest='rps', nargs='+')
 	# parser.add_argument('-c','--count', help='TAB file with count of mapped reads for each contigs.', action='append', required=True, dest='count', nargs='+')
 	parser.add_argument('-f','--fasta', help='FASTA file with contigs', action='append', required=True, dest='fasta', nargs='+')
